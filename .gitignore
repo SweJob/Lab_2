@@ -1,0 +1,11 @@
+*.key
+*.pem
+*.pub
+*.bin
+*.salttest.key
+asymmetric.pem
+asymmetric.pub
+symmetric_key.key.key
+asymmetric_key.pem
+asymmetric_key.pub
+*.md.backup
