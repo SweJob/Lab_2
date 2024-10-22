@@ -35,10 +35,8 @@ Nyckeln ska sedan kunna användas för att dekryptera shellcoden i ett c-program
 (vi kommer göra detta i en framtida kurs)
 ---
 
-All parts but "Avancerat alternativ" is done, but preparations in the code are made so that it could do it. The part missing is to make a char array out of the encrypted result of the shellcode. Maybe the encryption method should be less complex for this kind of encryption as well? If so, a simpler form of encryption needs to be created (xor, bit shift with rotation - something like that?)
-
----
 ## Documentation
 The separate tools have a more detalied documentation here:  
-- [keygenerator.md](keygenerator.md)  
-- [crypto_tool.md](crypto_tool.md)
+- [keygenerator.py](keygenerator.md) The tool to generate keys (gernates symmetric key and an assymetric keypair)
+- [crypto_tool.py](crypto_tool.md) The tool to en-/decrypt files. Can use the above created keyfiles or use a password to en-/decrypt with
+- [sc_obfuscator.py](sc_obfuscator.md) The tool to obfuscate a shellcode and store as a file of hexvalues to be imported in a c-program.
