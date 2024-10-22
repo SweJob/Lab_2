@@ -4,11 +4,10 @@ Encrypts or decrypts files using various key types (symmetric, asymmetric, passw
 The script supports command-line interface usage and can be imported as a module.
 
 Usage:
-    crypto_tool.py -d [direction] -k [keytype] [keyfile] {-p [password]} [input_files]
-    direction: 'en' for encrypt or 'de' for decrypt
+    crypto_tool.py -e/d [keytype] [keyfilee/password] [input_files]
+    -e/d for (e)ncrypt or (d)ecrypt
     keytype: 'sym' for symmetric, 'asym' for asymmetric, 'pwd' for password-based
-    keyfile: file with en/de-cryption key
-    password: Required if keytype is 'pwd'
+    keyfile: file with en/de-cryption key or password
     input_files: Filenames to process (wildcards allowed, e.g. '*.txt')
 
 Exit codes:

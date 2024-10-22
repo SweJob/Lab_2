@@ -15,12 +15,12 @@ Users can generate keys and save them to files for later use in encryption and d
 
 ### Examples
 1. **Generate a Symmetric Key:**  
-   `python keygenerator.py sym my_symmetric_key.key`
+   `python keygenerator.py sym my_symmetric`
    This command creates a symmetric key  
    Saves it to my_symmetric_key.key.
    
 2. **Generate an Asymmetric Key Pair:**  
-   `python keygenerator.py asym my_asymmetric_key`
+   `python keygenerator.py asym my_asymmetric`
    This command creates an asymmetric key pair.  
    Saves private key as my_asymmetric_key.pem  
    Saves public key as my_asymmetric_key.pub.
