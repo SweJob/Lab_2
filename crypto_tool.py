@@ -23,6 +23,7 @@ import argparse
 import sys
 import os
 import base64
+import glob
 from typing import List, Tuple
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -433,9 +434,8 @@ def process_files(
     enc_key_input: str,
     enc_input_files: List[str],
     enc_direction: str
-    ):
-    """
-    Process each input file based on the key type and operation direction.
+):
+    """Process each input file based on the key type and operation direction.
 
     The function selects the appropriate encryption or decryption method
     depending on the specified key type ('sym', 'asym', or 'pwd') and
@@ -452,7 +452,12 @@ def process_files(
     enc_direction : str
         The operation direction ('en' for encryption, 'de' for decryption).
     """
-    for filename in enc_input_files:
+    all_files = []
+    for pattern in enc_input_files:
+        # Expand wildcards to list of file names
+        all_files.extend(glob.glob(pattern))
+
+    for filename in all_files:
         if enc_key_type == 'sym':
             key = load_symmetric_key(enc_key_input)
             if enc_direction == 'en':
