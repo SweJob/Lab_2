@@ -24,6 +24,7 @@ import argparse
 import sys
 import os
 import base64
+from typing import List, Tuple
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from Crypto.Protocol.KDF import PBKDF2
@@ -31,10 +32,30 @@ from Crypto.Random import get_random_bytes
 from cryptography.fernet import Fernet
 
 
-def get_arguments():
+def get_arguments() -> Tuple[str, str, List[str], str]:
     """
-    Parse command-line arguments for the encryption/decryption tool.
+    Parse command-line arguments for encryption and decryption processes.
+
+    This method uses `argparse` to handle and validate command-line inputs 
+    for the encryption tool. It determines whether the user is performing
+    encryption or decryption and checks the key type and input files.
+
+    Returns:
+    -------
+    tuple:
+        A tuple containing:
+        - key_type (str): Type of key used ('sym', 'asym', or 'pwd').
+        - key_input (str): Keyfile or password input from the user.
+        - input_files (list): List of filenames to process.
+        - direction (str): Operation direction ('en' for encrypt, 'de' for decrypt).
+
+    Raises:
+    ------
+    SystemExit:
+        If an invalid direction, key type, or file is provided, the script
+        exits with a specific error code.
     """
+
     parser = argparse.ArgumentParser(description="Encrypt or decrypt files.")
 
     # Define encryption and decryption flags
@@ -58,7 +79,32 @@ def get_arguments():
 
 ## File handling
 def read_file(filename: str) -> bytes:
-    """Reads the content of a file in binary mode."""
+    """
+    Reads the content of a file in binary mode.
+
+    Opens the specified file in binary read mode and returns its content.
+    If the file is not found or cannot be read, an appropriate error message
+    is displayed, and the script exits with an error code.
+
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to read.
+
+    Returns:
+    -------
+    bytes:
+        The content of the file.
+
+    Raises:
+    ------
+    FileNotFoundError:
+        If the file does not exist.
+    PermissionError:
+        If there are insufficient permissions to access the file.
+    IsADirectoryError:
+        If the specified filename is a directory and not a file.
+    """
     try:
         with open(filename, 'rb') as infile:
             return infile.read()
@@ -72,8 +118,28 @@ def read_file(filename: str) -> bytes:
         print(f"Error: {filename} is a directory, not a file.")
         sys.exit(1)
 
+
 def write_file(filename: str, content: bytes):
-    """Writes the given content to a file in binary mode."""
+    """
+    Writes the given content to a file in binary mode.
+
+    If the file already exists, the user is prompted whether to overwrite it. 
+    The file is written in binary mode.
+
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to write to.
+    content : bytes
+        The binary content to be written to the file.
+
+    Raises:
+    ------
+    PermissionError:
+        If there are insufficient permissions to write to the file.
+    IsADirectoryError:
+        If the specified filename is a directory and not a file.
+    """
     if os.path.exists(filename):
         response = input(f"File {filename} already exists. Overwrite? (y/n): ")
         if response.lower() != 'y':
@@ -92,17 +158,43 @@ def write_file(filename: str, content: bytes):
 
 
 ## Loading keys from file
-def load_symmetric_key(filename: str):
+def load_symmetric_key(filename: str) -> bytes:
     """
     Load a symmetric key from a Base64 encoded file.
-    :param filename: Filename containing the symmetric key.
-    :return: Symmetric key.
+
+    Parameters:
+    ----------
+    filename : str
+        Filename containing the symmetric key.
+
+    Returns:
+    -------
+    bytes:
+        The symmetric key.
     """
     key_data = read_file(filename)  # Use read_file to load key
     return key_data
 
-def load_asymmetric_key(key_file: str):
-    """Load an asymmetric RSA key from a PEM file."""
+
+def load_asymmetric_key(key_file: str) -> RSA.RsaKey:
+    """
+    Load an asymmetric RSA key from a PEM file.
+
+    Parameters:
+    ----------
+    key_file : str
+        Filename containing the RSA key.
+
+    Returns:
+    -------
+    RSA.RsaKey:
+        The loaded RSA key.
+
+    Raises:
+    ------
+    ValueError:
+        If the key cannot be loaded or is invalid.
+    """
     key_data = read_file(key_file)  # Use read_file to load key
     try:
         return RSA.import_key(key_data)
@@ -110,125 +202,282 @@ def load_asymmetric_key(key_file: str):
         print(f"Error loading key from {key_file}: {e}")
         sys.exit(1)
 
+
 ## Symmetric methods
 def encrypt_file_sym(filename: str, key: bytes):
-    """Encrypts the content of a file using a symmetric key."""
+    """
+    Encrypts the content of a file using a symmetric key.
+
+    This function reads the content of the specified file, encrypts it using 
+    the provided symmetric key, and writes the encrypted content to a new 
+    file with the '.sym.enc' suffix.
+
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to encrypt.
+    key : bytes
+        The symmetric key used for encryption.
+
+    Raises:
+    ------
+    IOError:
+        If the file cannot be read or written to.
+    """
     plaintext = read_file(filename)  # Step 1: Read the file
     ciphertext = encrypt_symmetric(plaintext, key)  # Step 2: Encrypt the content
     write_file(filename + '.sym.enc', ciphertext)  # Step 3: Write the encrypted content
 
+
 def encrypt_symmetric(plaintext: bytes, key: bytes) -> bytes:
-    """Encrypts data using the symmetric key."""
+    """
+    Encrypts data using the symmetric key.
+
+    Parameters:
+    ----------
+    plaintext : bytes
+        Data to encrypt.
+    key : bytes
+        Symmetric encryption key.
+
+    Returns:
+    -------
+    bytes:
+        Encrypted data.
+    """
     fernet = Fernet(key)  # Create a Fernet instance
     return fernet.encrypt(plaintext)  # Return the encrypted content
 
+
 def decrypt_file_sym(filename: str, key: bytes):
-    """Decrypts the content of a file using a symmetric key."""
+    """
+    Decrypts the content of a file using a symmetric key.
+
+    This function reads the encrypted content from the specified file, decrypts 
+    it using the provided symmetric key, and writes the decrypted content to a 
+    new file.
+
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to decrypt.
+    key : bytes
+        The symmetric key used for decryption.
+
+    Raises:
+    ------
+    IOError:
+        If the file cannot be read or written to.
+    """
     ciphertext = read_file(filename)  # Step 1: Read the encrypted file
     plaintext = decrypt_symmetric(ciphertext, key)  # Step 2: Decrypt the content
     write_file(filename[:-8], plaintext)  # Step 3: Write the decrypted content
 
+
 def decrypt_symmetric(ciphertext: bytes, key: bytes) -> bytes:
-    """Decrypts data using the symmetric key."""
+    """
+    Decrypts data using the symmetric key.
+
+    Parameters:
+    ----------
+    ciphertext : bytes
+        Data to decrypt.
+    key : bytes
+        Symmetric decryption key.
+
+    Returns:
+    -------
+    bytes:
+        Decrypted data.
+    """
     fernet = Fernet(key)  # Create a Fernet instance
     return fernet.decrypt(ciphertext)  # Return the decrypted content
 
-## Assymetric methods
 
-def encrypt_file_asym(filename: str, public_key):
-    """Encrypts the content of a file using an asymmetric public key."""
+## Asymmetric methods
+def encrypt_file_asym(filename: str, public_key: RSA.RsaKey):
+    """
+    Encrypts the content of a file using an asymmetric public key.
+
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to encrypt.
+    public_key : RSA.RsaKey
+        Public key for encryption.
+
+    Raises:
+    ------
+    IOError:
+        If the file cannot be read or written to.
+    """
     plaintext = read_file(filename)  # Step 1: Read the file
-    ciphertext = encrypt_asymmetric(plaintext, public_key)  # Step 2: Encrypt the content
-    write_file(filename + '.asym.enc', ciphertext)  # Step 3: Write the encrypted content
+    ciphertext = encrypt_asymmetric(plaintext, public_key)  # Step 2: Encrypt
+    write_file(filename + '.asym.enc', ciphertext)  # Step 3: Write encrypted content
 
-def encrypt_asymmetric(plaintext: bytes, public_key) -> bytes:
-    """Encrypts data using the asymmetric public key."""
-    cipher = PKCS1_OAEP.new(public_key)
-    return cipher.encrypt(plaintext)  # Return the encrypted content
 
-def decrypt_file_asym(filename: str, private_key):
-    """Decrypts the content of a file using an asymmetric private key."""
+def encrypt_asymmetric(plaintext: bytes, public_key: RSA.RsaKey) -> bytes:
+    """
+    Encrypts data using the provided asymmetric public key.
+
+    Parameters:
+    ----------
+    plaintext : bytes
+        Data to encrypt.
+    public_key : RSA.RsaKey
+        Public key for encryption.
+
+    Returns:
+    -------
+    bytes:
+        Encrypted data.
+    """
+    cipher = PKCS1_OAEP.new(public_key)  # Create an RSA cipher instance
+    return cipher.encrypt(plaintext)  # Return the encrypted data
+
+
+def decrypt_file_asym(filename: str, private_key: RSA.RsaKey):
+    """
+    Decrypts the content of a file using an asymmetric private key.
+
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to decrypt.
+    private_key : RSA.RsaKey
+        Private key for decryption.
+
+    Raises:
+    ------
+    IOError:
+        If the file cannot be read or written to.
+    """
     ciphertext = read_file(filename)  # Step 1: Read the encrypted file
-    plaintext = decrypt_asymmetric(ciphertext, private_key)  # Step 2: Decrypt the content
-    write_file(filename[:-9], plaintext)  # Step 3: Write the decrypted content
+    plaintext = decrypt_asymmetric(ciphertext, private_key)  # Step 2: Decrypt
+    write_file(filename[:-10], plaintext)  # Step 3: Write decrypted content
 
-def decrypt_asymmetric(ciphertext: bytes, private_key) -> bytes:
-    """Decrypts data using the asymmetric private key."""
-    cipher = PKCS1_OAEP.new(private_key)
-    return cipher.decrypt(ciphertext)  # Return the decrypted content
+
+def decrypt_asymmetric(ciphertext: bytes, private_key: RSA.RsaKey) -> bytes:
+    """
+    Decrypts data using the provided asymmetric private key.
+
+    Parameters:
+    ----------
+    ciphertext : bytes
+        Data to decrypt.
+    private_key : RSA.RsaKey
+        Private key for decryption.
+
+    Returns:
+    -------
+    bytes:
+        Decrypted data.
+    """
+    cipher = PKCS1_OAEP.new(private_key)  # Create an RSA cipher instance
+    return cipher.decrypt(ciphertext)  # Return the decrypted data
+
 
 ## Password-based methods
-
 def encrypt_file_pwd(filename: str, password: str):
-    """Encrypts the content of a file using a password."""
-    plaintext = read_file(filename)  # Step 1: Read the file
-    ciphertext = encrypt_password(plaintext, password)  # Step 2: Encrypt the content
-    write_file(filename + '.pwd.enc', ciphertext)  # Step 3: Write the encrypted content
+    """
+    Encrypts the content of a file using a password-derived key.
 
-def encrypt_password(plaintext: bytes, password: str) -> bytes:
-    """Encrypts data using a password."""
-    salt = get_random_bytes(16)  # Generate a new salt
-    key = PBKDF2(password, salt, dkLen=32)  # Derive a key
-    fernet = Fernet(base64.urlsafe_b64encode(key))  # Create a Fernet instance
-    return salt + fernet.encrypt(plaintext)  # Return salt + encrypted content
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to encrypt.
+    password : str
+        The password used for deriving the encryption key.
+
+    Raises:
+    ------
+    IOError:
+        If the file cannot be read or written to.
+    """
+    plaintext = read_file(filename)  # Step 1: Read the file
+    salt = get_random_bytes(16)  # Generate a salt
+    key = PBKDF2(password, salt, dkLen=32)  # Derive key from password
+    ciphertext = encrypt_symmetric(plaintext, base64.urlsafe_b64encode(key))  # Step 2: Encrypt
+
+    # Combine salt and ciphertext, write to file
+    write_file(filename + '.pwd.enc', salt + ciphertext)  # Step 3: Write encrypted content
+
 
 def decrypt_file_pwd(filename: str, password: str):
-    """Decrypts the content of a file using a password."""
-    ciphertext = read_file(filename)  # Step 1: Read the encrypted file
-    plaintext = decrypt_password(ciphertext, password)  # Step 2: Decrypt the content
-    write_file(filename[:-8], plaintext)  # Step 3: Write the decrypted content
+    """
+    Decrypts the content of a file using a password-derived key.
 
-def decrypt_password(ciphertext: bytes, password: str) -> bytes:
-    """Decrypts data using a password."""
-    salt = ciphertext[:16]  # Extract the salt
-    key = PBKDF2(password, salt, dkLen=32)  # Derive the key
-    fernet = Fernet(base64.urlsafe_b64encode(key))  # Create a Fernet instance
-    return fernet.decrypt(ciphertext[16:])  # Return the decrypted content
+    Parameters:
+    ----------
+    filename : str
+        The name of the file to decrypt.
+    password : str
+        The password used for deriving the decryption key.
 
-## Process Orchestration methods
+    Raises:
+    ------
+    IOError:
+        If the file cannot be read or written to.
+    """
+    ciphertext_with_salt = read_file(filename)  # Step 1: Read encrypted file
+    salt, ciphertext = ciphertext_with_salt[:16], ciphertext_with_salt[16:]  # Extract salt
 
-def process_symmetric_files(input_files, direction, key):
-    """Process files using symmetric encryption/decryption."""
-    for file in input_files:
-        if direction == 'en':
-            encrypt_file_sym(file, key)
-        else:
-            decrypt_file_sym(file, key)
+    key = PBKDF2(password, salt, dkLen=32)  # Derive key from password
+    plaintext = decrypt_symmetric(ciphertext, base64.urlsafe_b64encode(key))  # Step 2: Decrypt
 
-def process_asymmetric_files(input_files, direction, key):
-    """Process files using asymmetric encryption/decryption."""
-    if direction == 'en':
-        for file in input_files:
-            encrypt_file_asym(file, key)
-    else:
-        for file in input_files:
-            decrypt_file_asym(file, key)
-
-def process_password_files(input_files, direction, password):
-    """Process files using password-based encryption/decryption."""
-    for file in input_files:
-        if direction == 'en':
-            encrypt_file_pwd(file, password)
-        else:
-            decrypt_file_pwd(file, password)
-
-def process_files(input_files, direction, key_or_password, key_type):
-    """Process the list of input files based on the direction and key type."""
-    if key_type == 'sym':
-        key = load_symmetric_key(key_or_password)
-        process_symmetric_files(input_files, direction, key)
-    elif key_type == 'asym':
-        key = load_asymmetric_key(key_or_password)
-        process_asymmetric_files(input_files, direction, key)
-    elif key_type == 'pwd':
-        password = key_or_password
-        process_password_files(input_files, direction, password)
+    write_file(filename[:-8], plaintext)  # Step 3: Write decrypted content
 
 
-def main():
-    """Main function to parse arguments and process files."""
-    key_type, key_input, input_files, direction = get_arguments()
-    process_files(input_files, direction, key_input, key_type)
+## Main processing logic
+def process_files(
+    enc_key_type: str,
+    enc_key_input: str,
+    enc_input_files: List[str],
+    enc_direction: str
+    ):
+    """
+    Process each input file based on the key type and operation direction.
 
-if __name__ == "__main__":
-    main()
+    The function selects the appropriate encryption or decryption method
+    depending on the specified key type ('sym', 'asym', or 'pwd') and
+    processes each input file.
+
+    Parameters:
+    ----------
+    enc_key_type : str
+        The type of key being used ('sym', 'asym', 'pwd').
+    enc_key_input : str
+        The keyfile or password.
+    enc_input_files : list
+        A list of filenames to process.
+    enc_direction : str
+        The operation direction ('en' for encryption, 'de' for decryption).
+    """
+    for filename in enc_input_files:
+        if enc_key_type == 'sym':
+            key = load_symmetric_key(enc_key_input)
+            if enc_direction == 'en':
+                encrypt_file_sym(filename, key)
+            else:
+                decrypt_file_sym(filename, key)
+
+        elif enc_key_type == 'asym':
+            if enc_direction == 'en':
+                public_key = load_asymmetric_key(enc_key_input)
+                encrypt_file_asym(filename, public_key)
+            else:
+                private_key = load_asymmetric_key(enc_key_input)
+                decrypt_file_asym(filename, private_key)
+
+        elif enc_key_type == 'pwd':
+            if enc_direction == 'en':
+                encrypt_file_pwd(filename, enc_key_input)
+            else:
+                decrypt_file_pwd(filename, enc_key_input)
+
+        print(f"Processed {filename} ({enc_direction}cryption completed).")
+
+
+if __name__ == '__main__':
+    key_type_main, key_input_main, input_files_main, direction_main = get_arguments()
+    process_files(key_type_main, key_input_main, input_files_main, direction_main)
